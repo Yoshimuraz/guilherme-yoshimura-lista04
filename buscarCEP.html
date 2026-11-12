@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>buscaCEP</title>
+  <style>
+    body {
+      font-family: "Times New Roman", Times, serif;
+      margin: 20px;
+      color: #000;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 16px;
+    }
+    input, button {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.85rem;
+      padding: 8px;
+      border: 1px solid #888;
+      border-radius: 3px;
+    }
+    input { margin-bottom: 14px; background: #fff; }
+    button {
+      background: #efefef;
+      cursor: pointer;
+      margin-bottom: 14px;
+    }
+    button:hover { background: #e0e0e0; }
+    button:disabled { cursor: not-allowed; opacity: .6; }
+    #resultado p { margin: 6px 0; }
+    .erro {
+      display: inline-block;
+      border: 2px solid #e00000;
+      padding: 2px 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>buscaCEP</h1>
+
+  <input type="text" id="cep" placeholder="Digite o CEP (ex: 01001000)" maxlength="9" autocomplete="off">
+  <button id="btnBuscar">Buscar Endereço</button>
+
+  <div id="resultado"></div>
+
+  <script>
+    const inputCep = document.getElementById('cep');
+    const btnBuscar = document.getElementById('btnBuscar');
+    const resultado = document.getElementById('resultado');
+
+    function mostrarErro() {
+      resultado.innerHTML = '';
+      const span = document.createElement('span');
+      span.className = 'erro';
+      span.textContent = 'Erro ao buscar endereço.';
+      resultado.appendChild(span);
+    }
+
+    function mostrarEndereco(dados) {
+      resultado.innerHTML = '';
+      const campos = [
+        ['Logradouro', dados.logradouro],
+        ['Bairro', dados.bairro],
+        ['Cidade', dados.localidade],
+        ['Estado', dados.uf]
+      ];
+      campos.forEach(([rotulo, valor]) => {
+        const p = document.createElement('p');
+        const strong = document.createElement('strong');
+        strong.textContent = rotulo + ': ';
+        p.appendChild(strong);
+        p.appendChild(document.createTextNode(valor || ''));
+        resultado.appendChild(p);
+      });
+    }
+
+    async function buscarEndereco() {
+      const cep = inputCep.value.replace(/\D/g, '');
+
+      // Validação: exatamente 8 números
+      if (!/^\d{8}$/.test(cep)) {
+        mostrarErro();
+        return;
+      }
+
+      btnBuscar.disabled = true;
+      resultado.textContent = 'Buscando...';
+
+      try {
+        const resposta = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        if (!resposta.ok) throw new Error('Falha na requisição');
+
+        const dados = await resposta.json();
+        if (dados.erro) throw new Error('CEP não encontrado');
+
+        mostrarEndereco(dados);
+      } catch (erro) {
+        mostrarErro();
+      } finally {
+        btnBuscar.disabled = false;
+      }
+    }
+
+    btnBuscar.addEventListener('click', buscarEndereco);
+    inputCep.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') buscarEndereco();
+    });
+  </script>
+</body>
+</html>

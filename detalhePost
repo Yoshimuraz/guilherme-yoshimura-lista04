@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>detalhaPostagem</title>
+  <style>
+    body {
+      font-family: "Times New Roman", Times, serif;
+      margin: 20px;
+      color: #000;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+    }
+    select {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.85rem;
+      padding: 8px;
+      border: 1px solid #888;
+      border-radius: 6px;
+      background: #fff;
+      margin-bottom: 8px;
+    }
+    .post-item {
+      background: #e4e4e4;
+      border: 1px solid #aaa;
+      padding: 2px 4px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .post-item:hover { background: #d4d4d4; }
+    .post-item.ativo { background: #c8d8f0; }
+    #detalhe { margin-top: 24px; }
+    #detalhe h2 {
+      font-size: 1.1rem;
+      margin: 0 0 8px;
+    }
+    #detalhe p { margin: 0 0 16px; }
+    #detalhe ul { padding-left: 24px; }
+    #detalhe li { margin-bottom: 10px; font-size: 0.9rem; }
+    .erro {
+      display: inline-block;
+      border: 2px solid #e00000;
+      padding: 2px 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>detalhaPostagem</h1>
+
+  <label for="usuario">Usuário:</label>
+  <select id="usuario">
+    <option value="">Carregando usuários...</option>
+  </select>
+
+  <div id="postagens"></div>
+  <div id="detalhe"></div>
+
+  <script>
+    const API = 'https://jsonplaceholder.typicode.com';
+
+    const selectUsuario = document.getElementById('usuario');
+    const divPostagens = document.getElementById('postagens');
+    const divDetalhe = document.getElementById('detalhe');
+
+    function mostrarErro(container, texto) {
+      container.innerHTML = '';
+      const span = document.createElement('span');
+      span.className = 'erro';
+      span.textContent = texto;
+      container.appendChild(span);
+    }
+
+    async function carregarUsuarios() {
+      try {
+        const resposta = await fetch(`${API}/users`);
+        if (!resposta.ok) throw new Error('Falha ao carregar usuários');
+        const usuarios = await resposta.json();
+
+        selectUsuario.innerHTML = '';
+        const padrao = document.createElement('option');
+        padrao.value = '';
+        padrao.textContent = 'Selecione um usuário';
+        selectUsuario.appendChild(padrao);
+
+        usuarios.forEach((u) => {
+          const opt = document.createElement('option');
+          opt.value = u.id;
+          opt.textContent = u.name;
+          selectUsuario.appendChild(opt);
+        });
+      } catch (erro) {
+        selectUsuario.innerHTML = '<option value="">Erro ao carregar</option>';
+        mostrarErro(divPostagens, 'Erro ao carregar os usuários.');
+      }
+    }
+
+    async function carregarPostagens(userId) {
+      divDetalhe.innerHTML = '';
+      divPostagens.textContent = 'Carregando postagens...';
+
+      try {
+        const resposta = await fetch(`${API}/posts?userId=${userId}`);
+        if (!resposta.ok) throw new Error('Falha ao carregar postagens');
+        const posts = await resposta.json();
+
+        divPostagens.innerHTML = '';
+
+        if (posts.length === 0) {
+          divPostagens.textContent = 'Este usuário não possui postagens.';
+          return;
+        }
+
+        posts.forEach((post) => {
+          const item = document.createElement('div');
+          item.className = 'post-item';
+          item.textContent = post.title;
+          item.addEventListener('click', () => {
+            divPostagens.querySelectorAll('.post-item')
+              .forEach((el) => el.classList.remove('ativo'));
+            item.classList.add('ativo');
+            detalharPostagem(post.id);
+          });
+          divPostagens.appendChild(item);
+        });
+      } catch (erro) {
+        mostrarErro(divPostagens, 'Erro ao carregar as postagens.');
+      }
+    }
+
+    async function detalharPostagem(postId) {
+      divDetalhe.textContent = 'Carregando postagem...';
+
+      try {
+        // Postagem completa e comentários
+        const [respPost, respComentarios] = await Promise.all([
+          fetch(`${API}/posts/${postId}`),
+          fetch(`${API}/posts/${postId}/comments`)
+        ]);
+
+        if (!respPost.ok || !respComentarios.ok) {
+          throw new Error('Falha ao carregar detalhes');
+        }
+
+        const post = await respPost.json();
+        const comentarios = await respComentarios.json();
+
+        divDetalhe.innerHTML = '';
+
+        const titulo = document.createElement('h2');
+        titulo.textContent = post.title;
+
+        const corpo = document.createElement('p');
+        corpo.textContent = post.body;
+
+        const tituloComentarios = document.createElement('strong');
+        tituloComentarios.textContent = 'Comentários:';
+
+        const lista = document.createElement('ul');
+        comentarios.forEach((c) => {
+          const li = document.createElement('li');
+          const nome = document.createElement('strong');
+          nome.textContent = c.name;
+          li.appendChild(nome);
+          li.appendChild(document.createTextNode(` (${c.email}): ${c.body}`));
+          lista.appendChild(li);
+        });
+
+        divDetalhe.appendChild(titulo);
+        divDetalhe.appendChild(corpo);
+        divDetalhe.appendChild(tituloComentarios);
+        divDetalhe.appendChild(lista);
+      } catch (erro) {
+        mostrarErro(divDetalhe, 'Erro ao carregar a postagem e os comentários.');
+      }
+    }
+
+    selectUsuario.addEventListener('change', () => {
+      const id = selectUsuario.value;
+      divDetalhe.innerHTML = '';
+
+      if (!id) {
+        divPostagens.innerHTML = '';
+        return;
+      }
+      carregarPostagens(id);
+    });
+
+    carregarUsuarios();
+  </script>
+</body>
+</html>
